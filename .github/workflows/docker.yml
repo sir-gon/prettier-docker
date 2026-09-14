@@ -3,6 +3,7 @@ name: Build and Push Docker image
 on:
   push:
     branches: ["main"]
+  pull_request:
   workflow_dispatch:
 
 env:
@@ -31,6 +32,7 @@ jobs:
 
       - name: Get prettier version
         id: prettier
+        if: github.ref == 'refs/heads/main'
         run: |
           set -euo pipefail
           # Si la imagen ya tiene `prettier` como ENTRYPOINT, pasar --version como argumento.
@@ -44,6 +46,7 @@ jobs:
           echo "version=$V" >> "$GITHUB_OUTPUT"
 
       - name: Log in to Docker Hub
+        if: github.ref == 'refs/heads/main'
         uses: docker/login-action@v4
         with:
           registry: docker.io
@@ -51,6 +54,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Tag and push image with version
+        if: github.ref == 'refs/heads/main'
         run: |
           docker tag ${{ env.IMAGE_NAME }}:${{ env.SHORT_SHA }} ${{ env.IMAGE_NAME }}:${{ env.PRETTIER_VERSION }}
           docker tag ${{ env.IMAGE_NAME }}:${{ env.SHORT_SHA }} ${{ env.IMAGE_NAME }}:latest
