@@ -1,0 +1,10 @@
+FROM node:26.7.0-alpine3.24
+
+WORKDIR /workspace
+
+RUN npm install -g --ignore-scripts prettier@3.5.3 \
+ && addgroup -g 1001 appgroup && adduser -D -u 1001 -G appgroup appuser
+
+USER appuser
+
+ENTRYPOINT ["prettier"]

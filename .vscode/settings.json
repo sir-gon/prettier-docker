@@ -1,0 +1,13 @@
+{
+    "yaml.disableSchemaDetection": [
+        "**/.github/workflows/*.yml",
+        "**/.github/workflows/*.yaml",
+        "**/.gitea/workflows/*.yml",
+        "**/.gitea/workflows/*.yaml",
+        "**/.forgejo/workflows/*.yml",
+        "**/.forgejo/workflows/*.yaml"
+    ],
+    "yaml.schemas": {
+        "https://www.schemastore.org/github-workflow.json": "file:///Users/gdiazc/devel/sir-gon/prettier-docker/.github/workflows/docker.yml"
+    }
+}

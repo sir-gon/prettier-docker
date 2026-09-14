@@ -1,0 +1,60 @@
+name: Build and Push Docker image
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: ${{ vars.DOCKERHUB_REPOSITORY }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set short SHA
+        run: echo "SHORT_SHA=${GITHUB_SHA::8}" >> "$GITHUB_ENV"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build image (local, load)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          load: true
+          tags: ${{ env.IMAGE_NAME }}:${{ env.SHORT_SHA }}
+
+      - name: Get prettier version
+        id: prettier
+        run: |
+          set -euo pipefail
+          # Si la imagen ya tiene `prettier` como ENTRYPOINT, pasar --version como argumento.
+          OUT=$(docker run --rm ${{ env.IMAGE_NAME }}:${{ env.SHORT_SHA }} --version 2>/dev/null || true)
+          V=$(echo "$OUT" | grep -oE '[0-9]+(\.[0-9]+){1,}' || true)
+          if [ -z "$V" ]; then
+            echo "No se pudo detectar la versión de prettier. Usando SHORT_SHA como versión fallback."
+            V=${{ env.SHORT_SHA }}
+          fi
+          echo "PRETTIER_VERSION=$V" >> "$GITHUB_ENV"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          registry: docker.io
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Tag and push image with version
+        run: |
+          docker tag ${{ env.IMAGE_NAME }}:${{ env.SHORT_SHA }} ${{ env.IMAGE_NAME }}:${{ env.PRETTIER_VERSION }}
+          docker tag ${{ env.IMAGE_NAME }}:${{ env.SHORT_SHA }} ${{ env.IMAGE_NAME }}:latest
+          docker push ${{ env.IMAGE_NAME }}:${{ env.PRETTIER_VERSION }}
+          docker push ${{ env.IMAGE_NAME }}:latest
+        env:
+          PRETTIER_VERSION: ${{ env.PRETTIER_VERSION }}
