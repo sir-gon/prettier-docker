@@ -9,9 +9,13 @@ on:
 env:
   IMAGE_NAME: ${{ vars.DOCKERHUB_REPOSITORY }}
 
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    outputs:
+      image_url: ${{ steps.publish.outputs.image_url }}
+      tag_url: ${{ steps.publish.outputs.tag_url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -62,3 +66,46 @@ jobs:
           docker push ${{ env.IMAGE_NAME }}:latest
         env:
           PRETTIER_VERSION: ${{ env.PRETTIER_VERSION }}
+
+      - name: Publish Docker Hub URL
+        id: publish
+        if: github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          REPO_URL="https://hub.docker.com/r/${{ env.IMAGE_NAME }}"
+          TAG_URL="${REPO_URL}/tags?name=${{ env.PRETTIER_VERSION }}"
+          echo "image_url=$REPO_URL" >> "$GITHUB_OUTPUT"
+          echo "tag_url=$TAG_URL" >> "$GITHUB_OUTPUT"
+          echo "### Docker Hub" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Repository: $REPO_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Tag: $TAG_URL" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment PR with Docker Hub link
+        if: github.ref == 'refs/heads/main'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const commit = process.env.GITHUB_SHA;
+            const repoName = process.env.IMAGE_NAME;
+            const repoUrl = `https://hub.docker.com/r/${repoName}`;
+            const tagUrl = `${repoUrl}/tags?name=${process.env.PRETTIER_VERSION}`;
+            const res = await github.request('GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls', {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: commit,
+              mediaType: { previews: ['groot'] }
+            });
+            if (res.data && res.data.length > 0) {
+              const prNumber = res.data[0].number;
+              const body = `La imagen Docker se ha publicado:\n- Repositorio: ${repoUrl}\n- Tag: ${tagUrl}`;
+              await github.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber, body });
+              core.info(`Commented on PR #${prNumber}`);
+            } else {
+              core.info('No pull request found for this commit.');
+            }
+        env:
+          PRETTIER_VERSION: ${{ env.PRETTIER_VERSION }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          SHORT_SHA: ${{ env.SHORT_SHA }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
