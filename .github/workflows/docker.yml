@@ -86,7 +86,7 @@ jobs:
 
       - name: Comment PR with Docker Hub link
         if: github.ref == 'refs/heads/main'
-        uses: actions/github-script@v6
+        uses: actions/github-script@v9.0.0
         with:
           script: |
             const commit = process.env.GITHUB_SHA;
