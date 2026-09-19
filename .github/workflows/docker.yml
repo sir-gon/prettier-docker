@@ -20,6 +20,7 @@ jobs:
     outputs:
       image_url: ${{ steps.publish.outputs.image_url }}
       tag_url: ${{ steps.publish.outputs.tag_url }}
+      summary: ${{ steps.publish.outputs.summary }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -78,53 +79,16 @@ jobs:
           set -euo pipefail
           REPO_URL="https://hub.docker.com/r/${{ env.IMAGE_NAME }}"
           TAG_URL="${REPO_URL}/tags?name=${{ env.PRETTIER_VERSION }}"
+          SUMMARY=$(cat <<EOF
+          ### Docker Hub
+          - Repository: $REPO_URL
+          - Tag: $TAG_URL
+          EOF
+          )
           echo "image_url=$REPO_URL" >> "$GITHUB_OUTPUT"
           echo "tag_url=$TAG_URL" >> "$GITHUB_OUTPUT"
-          echo "### Docker Hub" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Repository: $REPO_URL" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Tag: $TAG_URL" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Comment PR with Docker Hub link
-        if: github.ref == 'refs/heads/main'
-        uses: actions/github-script@v9.0.0
-        with:
-          script: |
-            const commit = process.env.GITHUB_SHA;
-            const repoName = process.env.IMAGE_NAME;
-            const repoUrl = `https://hub.docker.com/r/${repoName}`;
-            const tagUrl = `${repoUrl}/tags?name=${process.env.PRETTIER_VERSION}`;
-
-            const res = await github.request(
-              'GET /repos/{owner}/{repo}/commits/{commit_sha}/pulls',
-              {
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                commit_sha: commit,
-                mediaType: { previews: ['groot'] },
-              }
-            );
-
-            if (res.data?.length > 0) {
-              const prNumber = res.data[0].number;
-              const body =
-                `La imagen Docker se ha publicado:\n` +
-                `- Repositorio: ${repoUrl}\n` +
-                `- Tag: ${tagUrl}`;
-
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: prNumber,
-                body,
-              });
-
-              core.info(`Commented on PR #${prNumber}`);
-            } else {
-              core.info('No pull request found for this commit.');
-            }
-        env:
-          PRETTIER_VERSION: ${{ env.PRETTIER_VERSION }}
-          IMAGE_NAME: ${{ env.IMAGE_NAME }}
-          SHORT_SHA: ${{ env.SHORT_SHA }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "summary<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$SUMMARY" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          echo "$SUMMARY" >> "$GITHUB_STEP_SUMMARY"
 
