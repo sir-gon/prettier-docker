@@ -5,6 +5,6 @@ WORKDIR /workspace
 RUN npm install -g --ignore-scripts prettier@3.9.8 \
  && addgroup -g 1001 appgroup && adduser -D -u 1001 -G appgroup appuser
 
-USER appuser
+USER 1001
 
 ENTRYPOINT ["prettier"]
